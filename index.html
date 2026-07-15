@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Magazine Viewer</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<style>
+
+* {
+    box-sizing:border-box;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
+}
+
+body {
+
+    margin:0;
+    background:#111;
+
+    height:100vh;
+    overflow:hidden;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    font-family:Arial,sans-serif;
+}
+
+
+.viewer {
+
+    width:100%;
+    height:100%;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    overflow:hidden;
+
+}
+
+
+.magazine {
+
+    display:flex;
+
+    width:95%;
+    max-width:1400px;
+
+    transition:transform .4s ease;
+
+}
+
+
+.page {
+
+    flex:1;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    background:#000;
+
+    overflow:hidden;
+
+}
+
+
+canvas {
+
+    max-width:100%;
+    height:auto;
+
+    display:block;
+
+    cursor:pointer;
+
+    -webkit-user-drag:none;
+
+}
+
+
+/* Buttons */
+
+.control {
+
+    position:absolute;
+
+    top:50%;
+
+    transform:translateY(-50%);
+
+    background:rgba(96,165,250,.9);
+
+    border:0;
+
+    padding:14px 20px;
+
+    border-radius:10px;
+
+    cursor:pointer;
+
+    font-size:22px;
+
+    z-index:20;
+
+}
+
+
+.prev {
+    left:20px;
+}
+
+
+.next {
+    right:20px;
+}
+
+
+
+.toolbar {
+
+    position:absolute;
+
+    bottom:20px;
+
+    left:50%;
+
+    transform:translateX(-50%);
+
+    background:rgba(0,0,0,.7);
+
+    padding:10px 18px;
+
+    border-radius:20px;
+
+    color:white;
+
+    display:flex;
+
+    gap:15px;
+
+    align-items:center;
+
+}
+
+
+.toolbar button {
+
+    background:none;
+
+    color:white;
+
+    border:0;
+
+    cursor:pointer;
+
+    font-size:18px;
+
+}
+
+
+
+.zoomed {
+
+    transform:scale(2);
+
+}
+
+
+
+@media(max-width:768px){
+
+    .magazine{
+
+        width:100%;
+
+    }
+
+
+    .page:first-child{
+
+        display:none;
+
+    }
+
+
+    canvas{
+
+        width:100%;
+
+    }
+
+
+    .control{
+
+        padding:10px;
+
+    }
+
+}
+
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div class="viewer">
+
+
+<div class="magazine" id="magazine">
+
+
+<div class="page">
+
+<canvas id="left"></canvas>
+
+</div>
+
+
+<div class="page">
+
+<canvas id="right"></canvas>
+
+</div>
+
+
+</div>
+
+
+</div>
+
+
+
+<button class="control prev" onclick="previous()">◀</button>
+
+<button class="control next" onclick="next()">▶</button>
+
+
+
+<div class="toolbar">
+
+
+<span id="counter">
+Loading...
+</span>
+
+
+<button onclick="zoom()">
+🔍
+</button>
+
+
+<button onclick="fullscreen()">
+⛶
+</button>
+
+
+</div>
+
+
+
+
+
+<script>
+
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+
+
+const folder =
+new URLSearchParams(location.search)
+.get("magazine") || "wnj3";
+
+
+const pdfFile =
+`${folder}/magazine.pdf`;
+
+
+
+let pdf;
+
+let pages=0;
+
+let current=0;
+
+let zoomed=false;
+
+
+
+const left =
+document.getElementById("left");
+
+
+const right =
+document.getElementById("right");
+
+
+
+async function render(number,canvas){
+
+
+if(number<1 || number>pages){
+
+canvas.style.display="none";
+
+return;
+
+}
+
+
+canvas.style.display="block";
+
+
+const page =
+await pdf.getPage(number);
+
+
+
+const viewport =
+page.getViewport({
+scale:2
+});
+
+
+
+canvas.width =
+viewport.width;
+
+
+canvas.height =
+viewport.height;
+
+
+
+await page.render({
+
+canvasContext:
+canvas.getContext("2d"),
+
+viewport
+
+}).promise;
+
+
+}
+
+
+
+async function update(){
+
+
+
+render(current+1,left);
+
+render(current+2,right);
+
+
+
+let text="";
+
+
+if(current===0)
+
+text=`Page 1 / ${pages}`;
+
+else
+
+text=
+`Page ${current+1}-${Math.min(current+2,pages)} / ${pages}`;
+
+
+
+document.getElementById("counter").innerHTML=text;
+
+
+}
+
+
+
+
+function next(){
+
+
+if(current===0)
+
+current=1;
+
+
+else if(current+2<pages)
+
+current+=2;
+
+
+else
+
+current=pages-1;
+
+
+
+animate();
+
+
+update();
+
+
+}
+
+
+
+function previous(){
+
+
+if(current===1)
+
+current=0;
+
+
+else if(current-2>=1)
+
+current-=2;
+
+
+animate();
+
+
+update();
+
+
+}
+
+
+
+function animate(){
+
+const book=
+document.getElementById("magazine");
+
+
+book.style.transform="rotateY(-10deg)";
+
+
+setTimeout(()=>{
+
+book.style.transform="rotateY(0deg)";
+
+},200);
+
+}
+
+
+
+
+function zoom(){
+
+
+zoomed=!zoomed;
+
+
+document
+.getElementById("magazine")
+.classList
+.toggle(
+"zoomed",
+zoomed
+);
+
+
+}
+
+
+
+
+function fullscreen(){
+
+
+if(!document.fullscreenElement)
+
+document.documentElement.requestFullscreen();
+
+else
+
+document.exitFullscreen();
+
+
+}
+
+
+
+
+/* Keyboard */
+
+
+document.addEventListener(
+"keydown",
+e=>{
+
+
+if(e.key==="ArrowRight")
+
+next();
+
+
+if(e.key==="ArrowLeft")
+
+previous();
+
+
+if(e.key==="Escape")
+
+zoomed=false;
+
+
+});
+
+
+
+
+
+/* Swipe */
+
+
+let startX=0;
+
+
+
+document.addEventListener(
+"touchstart",
+e=>{
+
+startX=e.touches[0].clientX;
+
+});
+
+
+
+document.addEventListener(
+"touchend",
+e=>{
+
+
+let end=e.changedTouches[0].clientX;
+
+
+if(startX-end>80)
+
+next();
+
+
+if(end-startX>80)
+
+previous();
+
+
+});
+
+
+
+
+
+/* Mouse wheel zoom */
+
+
+document.addEventListener(
+"wheel",
+e=>{
+
+
+if(e.ctrlKey)
+
+zoom();
+
+
+});
+
+
+
+
+
+/* Block copying */
+
+
+document.addEventListener(
+"contextmenu",
+e=>e.preventDefault()
+);
+
+
+
+document.addEventListener(
+"dragstart",
+e=>e.preventDefault()
+);
+
+
+
+
+
+(async()=>{
+
+
+pdf =
+await pdfjsLib
+.getDocument(pdfFile)
+.promise;
+
+
+
+pages =
+pdf.numPages;
+
+
+
+update();
+
+
+})();
+
+
+
+</script>
+
+
+</body>
+</html>
